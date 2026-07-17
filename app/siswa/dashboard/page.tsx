@@ -28,9 +28,11 @@ export default function StudentDashboard() {
     pekerjaan_ayah: '',
     nama_ibu: '',
     pekerjaan_ibu: '',
-    alamat: ''
+    alamat: '',
+    foto_url: ''
   })
   const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [savingProfile, setSavingProfile] = useState(false)
 
@@ -78,7 +80,8 @@ export default function StudentDashboard() {
         pekerjaan_ayah: studentData.pekerjaan_ayah || '',
         nama_ibu: studentData.nama_ibu || '',
         pekerjaan_ibu: studentData.pekerjaan_ibu || '',
-        alamat: studentData.alamat || ''
+        alamat: studentData.alamat || '',
+        foto_url: studentData.foto_url || ''
       })
 
       const { data: attData } = await supabase
@@ -132,6 +135,36 @@ export default function StudentDashboard() {
     if (age <= 15) return 'U-15'
     if (age <= 18) return 'U-18'
     return 'Senior / Umum'
+  }
+
+  // Upload Foto Profil
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingPhoto(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${student.id}_foto_${Date.now()}.${fileExt}`
+      const filePath = `${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('student-documents')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('student-documents')
+        .getPublicUrl(filePath)
+
+      setEditForm(prev => ({ ...prev, foto_url: publicUrl }))
+      alert('Foto berhasil dipilih/diunggah ke form! Klik "Simpan Perubahan" di bawah untuk menerapkan.')
+    } catch (error: any) {
+      alert('Gagal upload foto: ' + error.message)
+    } finally {
+      setUploadingPhoto(false)
+    }
   }
 
   // Upload Berkas (KK, Akta, KIA)
@@ -192,7 +225,8 @@ export default function StudentDashboard() {
           pekerjaan_ayah: editForm.pekerjaan_ayah,
           nama_ibu: editForm.nama_ibu,
           pekerjaan_ibu: editForm.pekerjaan_ibu,
-          alamat: editForm.alamat
+          alamat: editForm.alamat,
+          foto_url: editForm.foto_url
         })
         .eq('id', student.id)
 
@@ -355,7 +389,26 @@ export default function StudentDashboard() {
           <div className="flex justify-between items-center border-b pb-2">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">👤 Data Pribadi & Dokumen Turnamen</h2>
             <button
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={() => {
+                setIsEditing(!isEditing)
+                setEditForm({
+                  nama: student.nama || '',
+                  no_hp: student.no_hp || '',
+                  asal_sekolah: student.asal_sekolah || '',
+                  tempat_lahir: student.tempat_lahir || '',
+                  tanggal_lahir: student.tanggal_lahir || '',
+                  tinggi_badan: student.tinggi_badan || '',
+                  berat_badan: student.berat_badan || '',
+                  ukuran_jersey: student.ukuran_jersey || 'M',
+                  no_punggung: student.no_punggung || '',
+                  nama_ayah: student.nama_ayah || '',
+                  pekerjaan_ayah: student.pekerjaan_ayah || '',
+                  nama_ibu: student.nama_ibu || '',
+                  pekerjaan_ibu: student.pekerjaan_ibu || '',
+                  alamat: student.alamat || '',
+                  foto_url: student.foto_url || ''
+                })
+              }}
               className="px-3 py-1.5 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 text-xs font-semibold rounded-xl transition cursor-pointer"
             >
               {isEditing ? 'Batal Edit' : '✏️ Edit Biodata'}
@@ -426,6 +479,25 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs sm:text-sm">
+              {/* EDIT FOTO PROFIL */}
+              <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                {editForm.foto_url ? (
+                  <img src={editForm.foto_url} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-2 border-[#1E3A8A]" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-100 text-[#1E3A8A] flex items-center justify-center font-bold text-xl border">
+                    {editForm.nama ? editForm.nama.charAt(0) : '?'}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="block font-bold text-gray-800 text-xs">Ubah Foto Profil</label>
+                  <label className="inline-block px-3 py-1.5 bg-[#1E3A8A] text-white font-semibold text-xs rounded-xl cursor-pointer hover:bg-blue-900 transition">
+                    {uploadingPhoto ? 'Mengunggah...' : '📷 Pilih Foto Baru'}
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                  <p className="text-[10px] text-gray-400">Format: JPG, PNG (Maks. 2MB)</p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-gray-700 mb-1">Nama Lengkap</label>
