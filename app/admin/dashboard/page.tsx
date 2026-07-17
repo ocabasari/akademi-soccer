@@ -16,6 +16,10 @@ export default function AdminDashboard() {
   const [adminName, setAdminName] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
 
+  // State untuk Mode Edit Siswa di Modal Detail
+  const [isEditingStudent, setIsEditingStudent] = useState(false)
+  const [editStudentForm, setEditStudentForm] = useState<any>({})
+
   // Sub-menu untuk Keuangan & Kas ('report' atau 'master_fees')
   const [financeSubTab, setFinanceSubTab] = useState<'report' | 'master_fees'>('report')
 
@@ -354,6 +358,54 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- FUNGSI SIMPAN PERUBAHAN DATA SISWA OLEH ADMIN ---
+  const handleSaveStudentEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editStudentForm.id) return
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({
+          nama: editStudentForm.nama,
+          email: editStudentForm.email,
+          no_hp: editStudentForm.no_hp,
+          asal_sekolah: editStudentForm.asal_sekolah,
+          tempat_lahir: editStudentForm.tempat_lahir,
+          tanggal_lahir: editStudentForm.tanggal_lahir,
+          tinggi_badan: editStudentForm.tinggi_badan ? Number(editStudentForm.tinggi_badan) : null,
+          berat_badan: editStudentForm.berat_badan ? Number(editStudentForm.berat_badan) : null,
+          no_punggung: editStudentForm.no_punggung ? Number(editStudentForm.no_punggung) : null,
+          ukuran_jersey: editStudentForm.ukuran_jersey,
+          nama_ayah: editStudentForm.nama_ayah,
+          pekerjaan_ayah: editStudentForm.pekerjaan_ayah,
+          nama_ibu: editStudentForm.nama_ibu,
+          pekerjaan_ibu: editStudentForm.pekerjaan_ibu,
+          alamat: editStudentForm.alamat
+        })
+        .eq('id', editStudentForm.id)
+
+      if (error) throw error
+
+      setStudents(students.map(s => s.id === editStudentForm.id ? { ...editStudentForm } : s))
+      setSelectedStudent(editStudentForm)
+      setIsEditingStudent(false)
+      setModalConfig({
+        isOpen: true,
+        title: 'Berhasil Diperbarui',
+        message: 'Data siswa berhasil diperbarui!',
+        type: 'success'
+      })
+    } catch (error: any) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Menyimpan',
+        message: 'Terjadi kesalahan: ' + error.message,
+        type: 'danger'
+      })
+    }
+  }
+
   const handleUpdatePayment = async (paymentId: string, newStatus: string) => {
     try {
       const { error } = await supabase
@@ -648,7 +700,7 @@ export default function AdminDashboard() {
 
   const eligibleStudentsForFee = students.filter(s => checkStudentObligation(s, selectedFeeObj))
 
-  // --- PEMERIKSAAN STATUS LUNAS YANG ROBUST (MENCOCOKKAN ID ATAU KATA KUNCI NAMA) ---
+  // --- PEMERIKSAAN STATUS LUNAS YANG ROBUST ---
   const studentsWithPaymentStatus = eligibleStudentsForFee.map(student => {
     const hasPaid = payments.some(p => {
       if (p.student_id !== student.id || p.status !== 'lunas') return false
@@ -865,7 +917,11 @@ export default function AdminDashboard() {
                           <td className="py-3.5 px-4 sm:px-6 text-center">
                             <div className="flex items-center justify-center gap-1.5 flex-wrap">
                               <button
-                                onClick={() => setSelectedStudent(student)}
+                                onClick={() => {
+                                  setSelectedStudent(student)
+                                  setEditStudentForm({ ...student })
+                                  setIsEditingStudent(false)
+                                }}
                                 className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1E3A8A] font-medium text-xs rounded-xl transition cursor-pointer flex items-center gap-1"
                               >
                                 <span>👁️ Detail</span>
@@ -1717,7 +1773,7 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* --- MODAL DETAIL SISWA --- */}
+      {/* --- MODAL DETAIL & EDIT SISWA --- */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
@@ -1733,7 +1789,9 @@ export default function AdminDashboard() {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{selectedStudent.nama}</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                    {isEditingStudent ? 'Edit Data Siswa' : selectedStudent.nama}
+                  </h3>
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize mt-1 ${selectedStudent.status?.toLowerCase() === 'aktif' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     Status: {selectedStudent.status || 'pending'}
                   </span>
@@ -1742,49 +1800,206 @@ export default function AdminDashboard() {
               <button onClick={() => setSelectedStudent(null)} className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer">✕</button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm bg-gray-50 p-4 rounded-2xl">
-              <div><p className="text-gray-400 text-[11px]">Email Akun</p><p className="font-semibold text-gray-800 break-all">{selectedStudent.email || '-'}</p></div>
-              <div><p className="text-gray-400 text-[11px]">No. HP / WhatsApp</p><p className="font-semibold text-gray-800">{selectedStudent.no_hp || '-'}</p></div>
-              <div><p className="text-gray-400 text-[11px]">Asal Sekolah</p><p className="font-semibold text-gray-800">{selectedStudent.asal_sekolah || '-'}</p></div>
-              <div><p className="text-gray-400 text-[11px]">Tempat, Tanggal Lahir</p><p className="font-semibold text-gray-800">{selectedStudent.tempat_lahir || '-'}{selectedStudent.tanggal_lahir ? `, ${selectedStudent.tanggal_lahir}` : ''}</p></div>
-              <div><p className="text-gray-400 text-[11px]">Tinggi & Berat Badan</p><p className="font-semibold text-gray-800">{selectedStudent.tinggi_badan || '-'} cm / {selectedStudent.berat_badan || '-'} kg</p></div>
-              <div><p className="text-gray-400 text-[11px]">Atribut Jersey & Punggung</p><p className="font-semibold text-gray-800">{selectedStudent.no_punggung ? `#${selectedStudent.no_punggung}` : '-'} (Ukuran: {selectedStudent.ukuran_jersey || '-'})</p></div>
-              <div><p className="text-gray-400 text-[11px]">Nama Ayah & Pekerjaan</p><p className="font-semibold text-gray-800">{selectedStudent.nama_ayah || '-'} {selectedStudent.pekerjaan_ayah ? `(${selectedStudent.pekerjaan_ayah})` : ''}</p></div>
-              <div><p className="text-gray-400 text-[11px]">Nama Ibu & Pekerjaan</p><p className="font-semibold text-gray-800">{selectedStudent.nama_ibu || '-'} {selectedStudent.pekerjaan_ibu ? `(${selectedStudent.pekerjaan_ibu})` : ''}</p></div>
-              <div className="sm:col-span-2"><p className="text-gray-400 text-[11px]">Alamat Lengkap</p><p className="font-semibold text-gray-800">{selectedStudent.alamat || '-'}</p></div>
-            </div>
+            {/* FORM / TAMPILAN DETAIL */}
+            {!isEditingStudent ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm bg-gray-50 p-4 rounded-2xl">
+                  <div><p className="text-gray-400 text-[11px]">Nama Lengkap</p><p className="font-semibold text-gray-800">{selectedStudent.nama || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Email Akun</p><p className="font-semibold text-gray-800 break-all">{selectedStudent.email || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">No. HP / WhatsApp</p><p className="font-semibold text-gray-800">{selectedStudent.no_hp || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Asal Sekolah</p><p className="font-semibold text-gray-800">{selectedStudent.asal_sekolah || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Tempat, Tanggal Lahir</p><p className="font-semibold text-gray-800">{selectedStudent.tempat_lahir || '-'}{selectedStudent.tanggal_lahir ? `, ${selectedStudent.tanggal_lahir}` : ''}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Tinggi & Berat Badan</p><p className="font-semibold text-gray-800">{selectedStudent.tinggi_badan || '-'} cm / {selectedStudent.berat_badan || '-'} kg</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Atribut Jersey & Punggung</p><p className="font-semibold text-gray-800">{selectedStudent.no_punggung ? `#${selectedStudent.no_punggung}` : '-'} (Ukuran: {selectedStudent.ukuran_jersey || '-'})</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Nama Ayah & Pekerjaan</p><p className="font-semibold text-gray-800">{selectedStudent.nama_ayah || '-'} {selectedStudent.pekerjaan_ayah ? `(${selectedStudent.pekerjaan_ayah})` : ''}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Nama Ibu & Pekerjaan</p><p className="font-semibold text-gray-800">{selectedStudent.nama_ibu || '-'} {selectedStudent.pekerjaan_ibu ? `(${selectedStudent.pekerjaan_ibu})` : ''}</p></div>
+                  <div className="sm:col-span-2"><p className="text-gray-400 text-[11px]">Alamat Lengkap</p><p className="font-semibold text-gray-800">{selectedStudent.alamat || '-'}</p></div>
+                </div>
 
-            {/* Cek Berkas Turnamen Admin */}
-            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-2">
-              <p className="text-xs font-bold text-[#1E3A8A] uppercase">📁 Berkas Turnamen Siswa</p>
-              <div className="flex gap-2 flex-wrap text-xs">
-                {selectedStudent.kk_url ? (
-                  <a href={selectedStudent.kk_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KK</a>
-                ) : (
-                  <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KK Belum Ada</span>
-                )}
-                {selectedStudent.akta_url ? (
-                  <a href={selectedStudent.akta_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat Akta</a>
-                ) : (
-                  <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ Akta Belum Ada</span>
-                )}
-                {selectedStudent.kia_url ? (
-                  <a href={selectedStudent.kia_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KIA</a>
-                ) : (
-                  <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KIA Belum Ada</span>
-                )}
+                {/* Cek Berkas Turnamen Admin */}
+                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-2">
+                  <p className="text-xs font-bold text-[#1E3A8A] uppercase">📁 Berkas Turnamen Siswa</p>
+                  <div className="flex gap-2 flex-wrap text-xs">
+                    {selectedStudent.kk_url ? (
+                      <a href={selectedStudent.kk_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KK</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KK Belum Ada</span>
+                    )}
+                    {selectedStudent.akta_url ? (
+                      <a href={selectedStudent.akta_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat Akta</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ Akta Belum Ada</span>
+                    )}
+                    {selectedStudent.kia_url ? (
+                      <a href={selectedStudent.kia_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KIA</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KIA Belum Ada</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* FORM EDIT SISWA */
+              <form onSubmit={handleSaveStudentEdit} className="space-y-4 text-xs sm:text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50 p-4 rounded-2xl">
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.nama || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, nama: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editStudentForm.email || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">No. HP / WhatsApp</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.no_hp || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, no_hp: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Asal Sekolah</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.asal_sekolah || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, asal_sekolah: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Tempat Lahir</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.tempat_lahir || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, tempat_lahir: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Tanggal Lahir</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.tanggal_lahir || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, tanggal_lahir: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Tinggi Badan (cm)</label>
+                    <input
+                      type="number"
+                      value={editStudentForm.tinggi_badan || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, tinggi_badan: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Berat Badan (kg)</label>
+                    <input
+                      type="number"
+                      value={editStudentForm.berat_badan || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, berat_badan: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">No Punggung</label>
+                    <input
+                      type="number"
+                      value={editStudentForm.no_punggung || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, no_punggung: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Ukuran Jersey</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.ukuran_jersey || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, ukuran_jersey: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Nama Ayah</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.nama_ayah || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, nama_ayah: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Nama Ibu</label>
+                    <input
+                      type="text"
+                      value={editStudentForm.nama_ibu || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, nama_ibu: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-gray-500 text-[11px] mb-1">Alamat Lengkap</label>
+                    <textarea
+                      value={editStudentForm.alamat || ''}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, alamat: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      rows={2}
+                    />
+                  </div>
+                </div>
 
-            <div className="pt-2 border-t flex justify-between items-center flex-wrap gap-2">
-              <button
-                onClick={() => handleResetPassword(selectedStudent.email, selectedStudent.nama)}
-                className="px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <span>🔑 Reset Password</span>
-              </button>
-              <button onClick={() => setSelectedStudent(null)} className="px-5 py-2.5 bg-[#1E3A8A] hover:bg-blue-900 text-white text-sm font-semibold rounded-xl cursor-pointer shadow-sm">Tutup</button>
-            </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingStudent(false)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold rounded-xl cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
+                  >
+                    💾 Simpan Perubahan
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!isEditingStudent && (
+              <div className="pt-2 border-t flex justify-between items-center flex-wrap gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleResetPassword(selectedStudent.email, selectedStudent.nama)}
+                    className="px-3.5 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span>🔑 Reset Password</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditingStudent(true)}
+                    className="px-3.5 py-2 bg-[#1E3A8A] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span>✏️ Edit Data</span>
+                  </button>
+                </div>
+                <button onClick={() => setSelectedStudent(null)} className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-xl cursor-pointer">Tutup</button>
+              </div>
+            )}
           </div>
         </div>
       )}
