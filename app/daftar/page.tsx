@@ -24,7 +24,7 @@ export default function DaftarPage() {
     nama_ayah: '',
     nama_ibu: '',
     alamat: '',
-    metode_pembayaran: 'lunas',
+    metode_pembayaran: 'lunas', // 'lunas', 'cicil', atau 'nanti'
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -74,6 +74,7 @@ export default function DaftarPage() {
         }
       }
 
+      // Status siswa baru mendaftar selalu 'pending'
       const { data: studentRecord, error: studentError } = await supabase.from('students').insert([
         {
           user_id: userId,
@@ -97,11 +98,19 @@ export default function DaftarPage() {
 
       if (studentError) throw studentError
 
-      const ketPembayaran = formData.metode_pembayaran === 'cicil' 
-        ? 'Biaya Pendaftaran (Termin 1 - Rp 300.000)' 
-        : 'Biaya Pendaftaran (Lunas - Rp 600.000)'
-      const jumlahTagihan = formData.metode_pembayaran === 'cicil' ? 300000 : 600000
+      // Logika Tagihan Pendaftaran
+      let ketPembayaran = 'Biaya Pendaftaran (Lunas - Rp 600.000)'
+      let jumlahTagihan = 600000
 
+      if (formData.metode_pembayaran === 'cicil') {
+        ketPembayaran = 'Biaya Pendaftaran (Termin 1 - Rp 300.000)'
+        jumlahTagihan = 300000
+      } else if (formData.metode_pembayaran === 'nanti') {
+        ketPembayaran = 'Biaya Pendaftaran (Belum Dibayar)'
+        jumlahTagihan = 600000
+      }
+
+      // Status keuangan pendaftaran selalu 'belum lunas' saat pertama mendaftar
       const { error: paymentError } = await supabase.from('payments').insert([
         {
           student_id: studentRecord.id,
@@ -230,10 +239,10 @@ export default function DaftarPage() {
             </div>
           </div>
 
-          {/* 3. PILIHAN METODE PEMBAYARAN (DI AKHIR) */}
+          {/* 3. PILIHAN METODE PEMBAYARAN (3 OPSI) */}
           <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-3">
             <label className="block text-sm font-bold text-[#1E3A8A]">Pilihan Pembayaran Pendaftaran (Total: Rp 600.000)</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${formData.metode_pembayaran === 'lunas' ? 'border-[#1E3A8A] bg-blue-50 font-semibold' : 'border-gray-200 bg-white'}`}>
                 <input 
                   type="radio" 
@@ -245,7 +254,7 @@ export default function DaftarPage() {
                 />
                 <div className="text-xs">
                   <p className="font-bold text-gray-900">Bayar Lunas</p>
-                  <p className="text-gray-500">Rp 600.000 (Sekaligus)</p>
+                  <p className="text-gray-500">Rp 600.000</p>
                 </div>
               </label>
 
@@ -259,8 +268,23 @@ export default function DaftarPage() {
                   className="text-[#1E3A8A]"
                 />
                 <div className="text-xs">
-                  <p className="font-bold text-gray-900">Cicil 2 Kali</p>
-                  <p className="text-gray-500">Termin 1: Rp 300.000</p>
+                  <p className="font-bold text-gray-900">Cicil (Termin 1)</p>
+                  <p className="text-gray-500">Rp 300.000</p>
+                </div>
+              </label>
+
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${formData.metode_pembayaran === 'nanti' ? 'border-[#1E3A8A] bg-blue-50 font-semibold' : 'border-gray-200 bg-white'}`}>
+                <input 
+                  type="radio" 
+                  name="metode_pembayaran" 
+                  value="nanti" 
+                  checked={formData.metode_pembayaran === 'nanti'}
+                  onChange={handleChange}
+                  className="text-[#1E3A8A]"
+                />
+                <div className="text-xs">
+                  <p className="font-bold text-gray-900">Bayar Nanti</p>
+                  <p className="text-gray-500">Bayar menyusul</p>
                 </div>
               </label>
             </div>
@@ -286,13 +310,14 @@ export default function DaftarPage() {
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-gray-900">Pendaftaran Berhasil Dikirim!</h2>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Silakan lakukan pembayaran biaya pendaftaran (<strong className="text-gray-900">{formData.metode_pembayaran === 'cicil' ? 'Termin 1: Rp 300.000' : 'Lunas: Rp 600.000'}</strong>). Admin akan segera memverifikasi data dan pembayaran Anda.
+                Akun Anda telah terdaftar dengan status <strong className="text-yellow-600">Pending (Belum Aktif)</strong>. Tagihan pendaftaran telah dicatat dengan status <strong className="text-red-600">Belum Lunas</strong>.
               </p>
             </div>
 
             <div className="bg-gray-50 p-4 rounded-2xl text-left text-xs space-y-1.5 border border-gray-100">
-              <p className="text-gray-500">Status Tagihan: <span className="font-semibold text-red-600">Belum Lunas (Menunggu Pembayaran)</span></p>
-              <p className="text-gray-500">Metode Dipilih: <span className="font-semibold text-gray-800 uppercase">{formData.metode_pembayaran}</span></p>
+              <p className="text-gray-500">Status Akun: <span className="font-semibold text-yellow-600 uppercase">Pending</span></p>
+              <p className="text-gray-500">Status Keuangan: <span className="font-semibold text-red-600 uppercase">Belum Lunas</span></p>
+              <p className="text-gray-500">Metode Pilihan: <span className="font-semibold text-gray-800 uppercase">{formData.metode_pembayaran}</span></p>
             </div>
 
             <button
