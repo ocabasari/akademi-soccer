@@ -580,7 +580,6 @@ export default function AdminDashboard() {
     try {
       const isPendaftaran = selectedFeeObj.kategori?.toLowerCase() === 'pendaftaran'
 
-      // Jika bukan pendaftaran, cek duplikasi pembayaran berdasarkan fee_type_id dan status lunas
       if (!isPendaftaran) {
         const { data: existingData, error: checkError } = await supabase
           .from('payments')
@@ -1876,11 +1875,24 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-3 px-4 sm:px-6 text-center">
                                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                  {p.status === 'lunas' && (
-                                    <button onClick={() => setSelectedInvoice(p)} className="px-2.5 py-1 bg-blue-50 text-[#1E3A8A] text-xs font-semibold rounded-lg cursor-pointer">
-                                      📄 Invoice
+                                  {p.status === 'lunas' ? (
+                                    <button
+                                      onClick={() => handleUpdatePayment(p.id, 'belum lunas')}
+                                      className="px-2.5 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs font-semibold rounded-lg transition cursor-pointer"
+                                    >
+                                      ↺ Batalkan
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleUpdatePayment(p.id, 'lunas')}
+                                      className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer"
+                                    >
+                                      ✓ Lunas
                                     </button>
                                   )}
+                                  <button onClick={() => setSelectedInvoice(p)} className="px-2.5 py-1 bg-blue-50 text-[#1E3A8A] text-xs font-semibold rounded-lg cursor-pointer">
+                                    📄 Invoice
+                                  </button>
                                   <button onClick={() => handleDeletePayment(p.id, p.bulan)} className="px-2.5 py-1 bg-red-50 text-red-600 text-xs font-semibold rounded-lg cursor-pointer">
                                     🗑️ Hapus
                                   </button>
@@ -1994,7 +2006,7 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* --- MODAL DETAIL & EDIT SISWA --- */}
+      {/* --- MODAL DETAIL & EDIT SISWA LENGKAP DENGAN DOWNLOAD FOTO --- */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
@@ -2018,11 +2030,42 @@ export default function AdminDashboard() {
             {!isEditingStudent ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm bg-gray-50 p-4 rounded-2xl">
-                  <div><p className="text-gray-400 text-[11px]">Nama</p><p className="font-semibold">{selectedStudent.nama}</p></div>
-                  <div><p className="text-gray-400 text-[11px]">Email</p><p className="font-semibold">{selectedStudent.email}</p></div>
-                  <div><p className="text-gray-400 text-[11px]">No HP</p><p className="font-semibold">{selectedStudent.no_hp || '-'}</p></div>
-                  <div><p className="text-gray-400 text-[11px]">Sekolah</p><p className="font-semibold">{selectedStudent.asal_sekolah || '-'}</p></div>
-                  <div><p className="text-gray-400 text-[11px]">Status Akademik</p><p className="font-semibold uppercase text-blue-600">{selectedStudent.status || 'pending'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Nama Lengkap</p><p className="font-semibold">{selectedStudent.nama}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Email Akun</p><p className="font-semibold break-all">{selectedStudent.email || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">No HP / WhatsApp</p><p className="font-semibold">{selectedStudent.no_hp || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Asal Sekolah</p><p className="font-semibold">{selectedStudent.asal_sekolah || '-'}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Tempat, Tanggal Lahir</p><p className="font-semibold">{selectedStudent.tempat_lahir || '-'}{selectedStudent.tanggal_lahir ? `, ${selectedStudent.tanggal_lahir}` : ''}</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Tinggi & Berat Badan</p><p className="font-semibold">{selectedStudent.tinggi_badan || '-'} cm / {selectedStudent.berat_badan || '-'} kg</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Atribut Jersey</p><p className="font-semibold">{selectedStudent.no_punggung ? `#${selectedStudent.no_punggung}` : '-'} (Ukuran: {selectedStudent.ukuran_jersey || '-'})</p></div>
+                  <div><p className="text-gray-400 text-[11px]">Orang Tua (Ayah / Ibu)</p><p className="font-semibold">{selectedStudent.nama_ayah || '-'} / {selectedStudent.nama_ibu || '-'}</p></div>
+                  <div className="sm:col-span-2"><p className="text-gray-400 text-[11px]">Alamat Lengkap</p><p className="font-semibold">{selectedStudent.alamat || '-'}</p></div>
+                </div>
+
+                {/* Berkas Turnamen & Tombol Download Pas Foto */}
+                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                  <p className="text-xs font-bold text-[#1E3A8A] uppercase">📁 Berkas & Dokumen Siswa</p>
+                  <div className="flex gap-2 flex-wrap text-xs items-center">
+                    {selectedStudent.foto_url && (
+                      <a href={selectedStudent.foto_url} download={`PasFoto_${selectedStudent.nama}.jpg`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-[#1E3A8A] text-white font-semibold rounded-lg shadow-2xs hover:bg-blue-900 transition">
+                        ⬇️ Download Pas Foto
+                      </a>
+                    )}
+                    {selectedStudent.kk_url ? (
+                      <a href={selectedStudent.kk_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KK</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KK Belum Ada</span>
+                    )}
+                    {selectedStudent.akta_url ? (
+                      <a href={selectedStudent.akta_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat Akta</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ Akta Belum Ada</span>
+                    )}
+                    {selectedStudent.kia_url ? (
+                      <a href={selectedStudent.kia_url} target="_blank" className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 font-semibold rounded-lg shadow-2xs">✓ Lihat KIA</a>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg">✕ KIA Belum Ada</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2031,6 +2074,10 @@ export default function AdminDashboard() {
                   <div>
                     <label className="block text-gray-500 text-[11px] mb-1">Nama Lengkap</label>
                     <input type="text" value={editStudentForm.nama || ''} onChange={(e) => setEditStudentForm({ ...editStudentForm, nama: e.target.value })} className="w-full px-3 py-2 bg-white rounded-xl border" required />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 text-[11px] mb-1">Email Akun</label>
+                    <input type="email" value={editStudentForm.email || ''} onChange={(e) => setEditStudentForm({ ...editStudentForm, email: e.target.value })} className="w-full px-3 py-2 bg-white rounded-xl border" required />
                   </div>
                   <div>
                     <label className="block text-gray-500 text-[11px] mb-1">Status Keaktifan Siswa</label>
